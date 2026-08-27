@@ -1,0 +1,32 @@
+{
+  "name": "@tomeio/addon-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for building capability-based Tomeio add-ons",
+  "type": "module",
+  "files": ["dist", "README.md", "LICENSE"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tome-io/addon-sdk.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
