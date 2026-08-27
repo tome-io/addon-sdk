@@ -13,7 +13,7 @@ Until the npm package is published, pin the GitHub release:
 ```json
 {
   "dependencies": {
-    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.1.0"
+    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.2.0"
   }
 }
 ```
@@ -57,6 +57,35 @@ export default {
 The request handler uses the Web `Request` and `Response` APIs and works with
 Cloudflare Workers, Bun, Node, and serverless frameworks that expose Web-standard
 handlers.
+
+## GitHub-only declarative add-ons
+
+Use `defineWorkflow` when an add-on should run without executable code or custom
+hosting. TypeScript provides authoring and type checking, while the published artifact
+is JSON interpreted by Tomeio. Workflows can make bounded HTTPS requests only to
+manifest-approved origins and transform responses through the fixed protocol operations.
+
+```ts
+import { defineWorkflow } from '@tomeio/addon-sdk';
+
+export const workflow = defineWorkflow({
+  workflowVersion: 1,
+  resources: {
+    search: {
+      steps: [
+        {
+          id: 'search',
+          request: {
+            urls: 'https://example.com/books',
+            query: { q: { $op: 'path', path: 'input.query' } },
+          },
+        },
+      ],
+      output: { $op: 'path', path: 'steps.search.body' },
+    },
+  },
+});
+```
 
 ## Protocol routes
 

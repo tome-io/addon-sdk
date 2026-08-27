@@ -90,6 +90,10 @@ export type ExtensionTransport =
       endpoints: Partial<Record<ExtensionResourceName, string>>;
     }
   | {
+      kind: 'declarative';
+      definitionUrl: string;
+    }
+  | {
       /** Reviewed device integration implemented by a narrow host capability. */
       kind: 'host';
       adapter: string;
@@ -192,6 +196,77 @@ export interface ExtensionReaderSyncResult {
 
 export interface ExtensionInvocationContext {
   configuration: Record<string, ExtensionConfigValue>;
+}
+
+export type ExtensionWorkflowExpression =
+  | string
+  | number
+  | boolean
+  | null
+  | ExtensionWorkflowExpression[]
+  | { [key: string]: ExtensionWorkflowExpression }
+  | {
+      $op:
+        | 'path'
+        | 'coalesce'
+        | 'concat'
+        | 'lowercase'
+        | 'uppercase'
+        | 'number'
+        | 'string'
+        | 'array'
+        | 'split'
+        | 'join'
+        | 'encode'
+        | 'add'
+        | 'multiply'
+        | 'equals'
+        | 'lessThan'
+        | 'in'
+        | 'and'
+        | 'not'
+        | 'if'
+        | 'length'
+        | 'first'
+        | 'map'
+        | 'compact'
+        | 'sizeBytes'
+        | 'absoluteUrl';
+      path?: string;
+      value?: ExtensionWorkflowExpression;
+      values?: ExtensionWorkflowExpression[];
+      separator?: string;
+      index?: number;
+      as?: string;
+      base?: ExtensionWorkflowExpression;
+      default?: ExtensionWorkflowExpression;
+    };
+
+export interface ExtensionWorkflowRequest {
+  urls: ExtensionWorkflowExpression;
+  method?: 'GET' | 'POST' | 'HEAD';
+  headers?: Record<string, ExtensionWorkflowExpression>;
+  query?: Record<string, ExtensionWorkflowExpression>;
+  form?: Record<string, ExtensionWorkflowExpression>;
+  json?: ExtensionWorkflowExpression;
+  response?: 'json' | 'text';
+  timeoutMs?: number;
+}
+
+export interface ExtensionWorkflowStep {
+  id: string;
+  request: ExtensionWorkflowRequest;
+  accept?: ExtensionWorkflowExpression;
+}
+
+export interface ExtensionWorkflowResource {
+  steps: ExtensionWorkflowStep[];
+  output: ExtensionWorkflowExpression;
+}
+
+export interface ExtensionWorkflowDefinition {
+  workflowVersion: 1;
+  resources: Partial<Record<ExtensionResourceName, ExtensionWorkflowResource>>;
 }
 
 export interface BookExtension {
@@ -332,6 +407,10 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
     const baseUrl = requiredString(transport, 'baseUrl');
     requireHttps(baseUrl, 'transport.baseUrl');
     parsedTransport = { kind: 'http', baseUrl };
+  } else if (transport.kind === 'declarative' && typeof transport.definitionUrl === 'string') {
+    const definitionUrl = requiredString(transport, 'definitionUrl');
+    requireHttps(definitionUrl, 'transport.definitionUrl');
+    parsedTransport = { kind: 'declarative', definitionUrl };
   } else if (transport.kind === 'declarative') {
     const endpoints = record(transport.endpoints);
     if (!endpoints) {

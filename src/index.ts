@@ -7,6 +7,7 @@ import {
   type ExtensionQuery,
   type ExtensionResolveQuery,
   type ExtensionReaderSyncRequest,
+  type ExtensionWorkflowDefinition,
 } from './protocol.js';
 
 export type { BookAcquisition, BookMetadata } from './domain.js';
@@ -31,6 +32,13 @@ export class AddonProtocolError extends Error {
     this.name = 'AddonProtocolError';
     this.status = status;
   }
+}
+
+/** Defines a JSON-only workflow that Tomeio can interpret without executing add-on code. */
+export function defineWorkflow(
+  definition: ExtensionWorkflowDefinition
+): ExtensionWorkflowDefinition {
+  return definition;
 }
 
 export function readAddonConfiguration(
@@ -111,6 +119,7 @@ function queryFromUrl(url: URL): ExtensionQuery {
     format: url.searchParams.get('format') ?? undefined,
   };
 }
+
 async function jsonBody<T>(request: Request): Promise<T> {
   if (!request.headers.get('content-type')?.toLowerCase().includes('application/json')) {
     throw new AddonProtocolError('Request body must use application/json.');
