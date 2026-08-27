@@ -255,6 +255,7 @@ export interface ExtensionWorkflowRequest {
 
 export interface ExtensionWorkflowStep {
   id: string;
+  when?: ExtensionWorkflowExpression;
   request: ExtensionWorkflowRequest;
   accept?: ExtensionWorkflowExpression;
 }
