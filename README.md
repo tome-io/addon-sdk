@@ -13,7 +13,7 @@ Until the npm package is published, pin the GitHub release:
 ```json
 {
   "dependencies": {
-    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.2.0"
+    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.2.1"
   }
 }
 ```
