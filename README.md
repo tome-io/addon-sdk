@@ -142,6 +142,11 @@ Device integrations must be submitted to `tome-io/extensions` because requested 
 capabilities and packages are reviewed before they become browsable under Community.
 Network-only HTTP/declarative add-ons can remain third-party and be installed by URL.
 
+Library-action requests include the current platform and, when a local book exists, its format.
+Network add-ons never receive the local URI or filename. A reviewed add-on may return
+`{ kind: 'openLocalFile', packageName: 'com.example.reader' }`; Tomeio verifies that package
+against `permissions.androidPackages` and performs the Android file handoff itself.
+
 ## Protocol routes
 
 - `GET /manifest.json`
