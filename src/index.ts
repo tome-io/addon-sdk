@@ -11,7 +11,7 @@ import {
   type ExtensionWorkflowDefinition,
 } from './protocol.js';
 
-export type { BookAcquisition, BookMetadata } from './domain.js';
+export type { BookAcquisition, BookMetadata, BookOffer, BookPrice } from './domain.js';
 export * from './protocol.js';
 
 export type TomeAddon = BookExtension;

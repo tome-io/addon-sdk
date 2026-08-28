@@ -6,6 +6,12 @@ Add-ons return normalized book metadata, resolution candidates, acquisition opti
 reader progress, and host-rendered library actions. They do not inject UI or executable
 code into Tomeio.
 
+An add-on with the `catalog` resource, declared `catalogs`, and `providerRoles: ['discovery']`
+can be selected as Tomeio's Discovery provider. Catalog support alone does not opt an add-on into
+the Home provider picker. Optional normalized `BookMetadata.offers` let Tomeio render prices and
+purchase actions consistently; add-ons never provide their own cover overlays or buttons.
+Manifest attribution may include an HTTPS `imageUrl` for provider-required branding.
+
 ## Install
 
 Until the npm package is published, pin the GitHub release:
@@ -13,7 +19,7 @@ Until the npm package is published, pin the GitHub release:
 ```json
 {
   "dependencies": {
-    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.3.0"
+    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.4.0"
   }
 }
 ```
