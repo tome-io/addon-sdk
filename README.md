@@ -13,7 +13,7 @@ Until the npm package is published, pin the GitHub release:
 ```json
 {
   "dependencies": {
-    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.2.1"
+    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.3.0"
   }
 }
 ```
@@ -86,6 +86,55 @@ export const workflow = defineWorkflow({
   },
 });
 ```
+
+## Reviewed device integrations
+
+Use `defineDeviceWorkflow` for reader integrations that need controlled access to a
+user-selected folder or an Android reading app. These JSON workflows are accepted only
+through Tomeio's reviewed community registry. They declare every device primitive and
+Android package they need; Tomeio executes only those fixed operations and never runs
+downloaded JavaScript.
+
+Version 1 supports selected-directory scanning, bounded text/JSON/binary file reads,
+ZIP entry reads, read-only SQLite queries, Android SharedPreferences parsing, and
+allow-listed Android file-open intents. File operations can use only URIs supplied by
+Tomeio or returned by an earlier directory scan. Device workflows cannot make network
+requests.
+
+A reader integration normally declares:
+
+```json
+{
+  "resources": [{ "name": "reader" }, { "name": "libraryAction" }],
+  "config": [{
+    "key": "backup_directory",
+    "type": "directory",
+    "title": "Reader backup folder",
+    "required": true
+  }],
+  "transport": {
+    "kind": "device",
+    "definitionUrl": "https://raw.githubusercontent.com/example/reader-addon/main/device-workflow.json"
+  },
+  "permissions": {
+    "hosts": ["https://raw.githubusercontent.com"],
+    "device": ["directory.read", "file.read", "android.open-file"],
+    "androidPackages": ["com.example.reader"]
+  }
+}
+```
+
+Its workflow scans that folder, reads the reader's published backup format, and maps it
+to normalized `ExtensionReaderBook` objects. A `libraryAction` can request the fixed
+`android.open-file` operation; Tomeio renders the button and supplies the local file.
+
+The complete Moon+ Reader reference implementation—including ZIP discovery, read-only
+SQLite queries, progress mapping, package ids, MIME types, and its library action—lives
+in [`tome-io/extensions/community/moon-reader`](https://github.com/tome-io/extensions/tree/main/community/moon-reader).
+
+Device integrations must be submitted to `tome-io/extensions` because requested local
+capabilities and packages are reviewed before they become browsable under Community.
+Network-only HTTP/declarative add-ons can remain third-party and be installed by URL.
 
 ## Protocol routes
 

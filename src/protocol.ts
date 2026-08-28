@@ -63,6 +63,14 @@ export interface ExtensionBehaviorHints {
 
 export type ExtensionPlatform = 'android' | 'ios' | 'web' | 'desktop';
 
+export type ExtensionDeviceCapability =
+  | 'directory.read'
+  | 'file.read'
+  | 'archive.read'
+  | 'sqlite.read'
+  | 'android.preferences.read'
+  | 'android.open-file';
+
 /** A host-rendered action. Add-ons describe actions; they never inject UI. */
 export interface ExtensionLibraryAction {
   id: string;
@@ -91,6 +99,11 @@ export type ExtensionTransport =
     }
   | {
       kind: 'declarative';
+      definitionUrl: string;
+    }
+  | {
+      /** Reviewed JSON workflow executed through permissioned device primitives. */
+      kind: 'device';
       definitionUrl: string;
     }
   | {
@@ -124,6 +137,8 @@ export interface ExtensionManifest {
   transport: ExtensionTransport;
   permissions?: {
     hosts?: string[];
+    device?: ExtensionDeviceCapability[];
+    androidPackages?: string[];
   };
 }
 
@@ -189,8 +204,24 @@ export interface ExtensionReaderProgress {
   lastReadAt?: number;
 }
 
+export interface ExtensionReaderBook extends ExtensionBookReference {
+  sourceId: string;
+  description?: string;
+  subjects?: string[];
+  format?: string;
+  sourceFilename?: string;
+  sourcePath?: string;
+  addedAt?: number;
+  progress?: number;
+  isRead?: boolean;
+  readingTimeMs?: number;
+  wordsRead?: number;
+  lastReadAt?: number;
+}
+
 export interface ExtensionReaderSyncResult {
   progress: ExtensionReaderProgress[];
+  books?: ExtensionReaderBook[];
   warnings?: string[];
 }
 
@@ -229,7 +260,19 @@ export type ExtensionWorkflowExpression =
         | 'length'
         | 'first'
         | 'map'
+        | 'filter'
+        | 'find'
+        | 'flatten'
+        | 'distinct'
         | 'compact'
+        | 'get'
+        | 'trim'
+        | 'basename'
+        | 'fileStem'
+        | 'fileExtension'
+        | 'percent'
+        | 'max'
+        | 'endsWith'
         | 'sizeBytes'
         | 'absoluteUrl';
       path?: string;
@@ -238,9 +281,72 @@ export type ExtensionWorkflowExpression =
       separator?: string;
       index?: number;
       as?: string;
+      by?: ExtensionWorkflowExpression;
       base?: ExtensionWorkflowExpression;
       default?: ExtensionWorkflowExpression;
     };
+
+export type ExtensionDeviceOperation =
+  | {
+      kind: 'directory.scan';
+      directory: ExtensionWorkflowExpression;
+      filenames?: string[];
+      extensions?: string[];
+      maxDepth?: number;
+      limit?: number;
+      order?: 'modified-desc' | 'name-asc';
+    }
+  | {
+      kind: 'file.read';
+      file: ExtensionWorkflowExpression;
+      response: 'text' | 'json' | 'bytes';
+    }
+  | {
+      kind: 'archive.read';
+      archive: ExtensionWorkflowExpression;
+      entry:
+        | { suffix: string }
+        | {
+            indexed: ExtensionWorkflowExpression;
+            targetSuffix: string;
+            entryExtension?: string;
+          };
+      response: 'text' | 'bytes';
+    }
+  | {
+      kind: 'sqlite.query';
+      database: ExtensionWorkflowExpression;
+      queries: Record<string, string>;
+    }
+  | {
+      kind: 'android.preferences.parse';
+      text: ExtensionWorkflowExpression;
+    }
+  | {
+      kind: 'android.open-file';
+      uri: ExtensionWorkflowExpression;
+      format?: ExtensionWorkflowExpression;
+      packages: string[];
+      activitySuffix?: string;
+      mimeTypes?: Record<string, string>;
+    };
+
+export interface ExtensionDeviceWorkflowStep {
+  id: string;
+  when?: ExtensionWorkflowExpression;
+  optional?: boolean;
+  operation: ExtensionDeviceOperation;
+}
+
+export interface ExtensionDeviceWorkflowResource {
+  steps: ExtensionDeviceWorkflowStep[];
+  output: ExtensionWorkflowExpression;
+}
+
+export interface ExtensionDeviceWorkflowDefinition {
+  deviceWorkflowVersion: 1;
+  resources: Partial<Record<'reader' | 'libraryAction', ExtensionDeviceWorkflowResource>>;
+}
 
 export interface ExtensionWorkflowRequest {
   urls: ExtensionWorkflowExpression;
@@ -412,6 +518,10 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
     const definitionUrl = requiredString(transport, 'definitionUrl');
     requireHttps(definitionUrl, 'transport.definitionUrl');
     parsedTransport = { kind: 'declarative', definitionUrl };
+  } else if (transport.kind === 'device') {
+    const definitionUrl = requiredString(transport, 'definitionUrl');
+    requireHttps(definitionUrl, 'transport.definitionUrl');
+    parsedTransport = { kind: 'device', definitionUrl };
   } else if (transport.kind === 'declarative') {
     const endpoints = record(transport.endpoints);
     if (!endpoints) {
@@ -448,6 +558,16 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
   } else {
     throw new InvalidExtensionManifestError(
       `Unsupported transport kind: ${transport.kind}.`
+    );
+  }
+  if (
+    parsedTransport.kind === 'device' &&
+    resources.some(
+      (resource) => resource.name !== 'reader' && resource.name !== 'libraryAction'
+    )
+  ) {
+    throw new InvalidExtensionManifestError(
+      'Device integrations may declare only reader and libraryAction resources.'
     );
   }
 
@@ -545,10 +665,11 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
   }
   if (
     parsedTransport.kind !== 'host' &&
+    parsedTransport.kind !== 'device' &&
     config?.some((field) => field.type === 'directory')
   ) {
     throw new InvalidExtensionManifestError(
-      'Directory configuration is available only to reviewed host adapters.'
+      'Directory configuration is available only to reviewed device integrations.'
     );
   }
 
@@ -659,10 +780,11 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
   }
   if (
     parsedTransport.kind !== 'host' &&
+    parsedTransport.kind !== 'device' &&
     libraryActions?.some((action) => action.requires?.localFile)
   ) {
     throw new InvalidExtensionManifestError(
-      'Only reviewed host adapters may request local files for library actions.'
+      'Only reviewed device integrations may request local files for library actions.'
     );
   }
 
@@ -680,6 +802,67 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
         return host;
       })
     : undefined;
+  const device = permissions?.device;
+  if (device != null && !Array.isArray(device)) {
+    throw new InvalidExtensionManifestError('permissions.device must be an array.');
+  }
+  const validDeviceCapabilities = new Set<ExtensionDeviceCapability>([
+    'directory.read',
+    'file.read',
+    'archive.read',
+    'sqlite.read',
+    'android.preferences.read',
+    'android.open-file',
+  ]);
+  const parsedDevice = Array.isArray(device)
+    ? device.map((capability, index) => {
+        if (
+          typeof capability !== 'string' ||
+          !validDeviceCapabilities.has(capability as ExtensionDeviceCapability)
+        ) {
+          throw new InvalidExtensionManifestError(`Invalid device permission at index ${index}.`);
+        }
+        return capability as ExtensionDeviceCapability;
+      })
+    : undefined;
+  if (parsedDevice && new Set(parsedDevice).size !== parsedDevice.length) {
+    throw new InvalidExtensionManifestError('permissions.device values must be unique.');
+  }
+  const androidPackages = permissions?.androidPackages;
+  if (androidPackages != null && !Array.isArray(androidPackages)) {
+    throw new InvalidExtensionManifestError('permissions.androidPackages must be an array.');
+  }
+  const parsedAndroidPackages = Array.isArray(androidPackages)
+    ? androidPackages.map((packageName, index) => {
+        if (
+          typeof packageName !== 'string' ||
+          !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(packageName)
+        ) {
+          throw new InvalidExtensionManifestError(
+            `Invalid Android package permission at index ${index}.`
+          );
+        }
+        return packageName;
+      })
+    : undefined;
+  if (
+    parsedAndroidPackages &&
+    new Set(parsedAndroidPackages).size !== parsedAndroidPackages.length
+  ) {
+    throw new InvalidExtensionManifestError(
+      'permissions.androidPackages values must be unique.'
+    );
+  }
+  if (parsedTransport.kind === 'device' && !parsedDevice?.length) {
+    throw new InvalidExtensionManifestError(
+      'Device integrations must declare permissions.device capabilities.'
+    );
+  }
+  if (parsedDevice?.includes('android.open-file') && !parsedAndroidPackages?.length) {
+    throw new InvalidExtensionManifestError(
+      'android.open-file requires permissions.androidPackages.'
+    );
+  }
   if (
     parsedTransport.kind !== 'bundled' &&
     parsedTransport.kind !== 'host' &&
@@ -713,7 +896,13 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
   if (config) manifest.config = config;
   if (behaviorHints) manifest.behaviorHints = behaviorHints;
   if (libraryActions) manifest.libraryActions = libraryActions;
-  if (parsedHosts) manifest.permissions = { hosts: parsedHosts };
+  if (parsedHosts || parsedDevice || parsedAndroidPackages) {
+    manifest.permissions = {
+      ...(parsedHosts ? { hosts: parsedHosts } : {}),
+      ...(parsedDevice ? { device: parsedDevice } : {}),
+      ...(parsedAndroidPackages ? { androidPackages: parsedAndroidPackages } : {}),
+    };
+  }
   return manifest;
 }
 

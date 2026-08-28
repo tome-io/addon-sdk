@@ -7,6 +7,7 @@ import {
   type ExtensionQuery,
   type ExtensionResolveQuery,
   type ExtensionReaderSyncRequest,
+  type ExtensionDeviceWorkflowDefinition,
   type ExtensionWorkflowDefinition,
 } from './protocol.js';
 
@@ -38,6 +39,13 @@ export class AddonProtocolError extends Error {
 export function defineWorkflow(
   definition: ExtensionWorkflowDefinition
 ): ExtensionWorkflowDefinition {
+  return definition;
+}
+
+/** Defines a reviewed JSON-only workflow using permissioned device capabilities. */
+export function defineDeviceWorkflow(
+  definition: ExtensionDeviceWorkflowDefinition
+): ExtensionDeviceWorkflowDefinition {
   return definition;
 }
 
