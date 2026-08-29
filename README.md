@@ -101,17 +101,23 @@ through Tomeio's reviewed community registry. They declare every device primitiv
 Android package they need; Tomeio executes only those fixed operations and never runs
 downloaded JavaScript.
 
-Version 1 supports selected-directory scanning, bounded text/JSON/binary file reads,
+Version 1 supports selected-directory scanning, host-selected backup imports, bounded text/JSON/binary file reads,
 ZIP entry reads, read-only SQLite queries, Android SharedPreferences parsing, and
 allow-listed Android file-open intents. File operations can use only URIs supplied by
 Tomeio or returned by an earlier directory scan. Device workflows cannot make network
 requests.
 
-A reader integration normally declares:
+A reader integration can declare a host-rendered backup import:
 
 ```json
 {
-  "resources": [{ "name": "reader" }, { "name": "libraryAction" }],
+  "resources": [{ "name": "reader" }, { "name": "libraryAction" }, { "name": "libraryImport" }],
+  "libraryImports": [{
+    "id": "backup",
+    "title": "Import Example Reader backup",
+    "fileExtensions": ["example-backup"],
+    "platforms": ["android", "ios"]
+  }],
   "config": [{
     "key": "backup_directory",
     "type": "directory",
@@ -130,8 +136,9 @@ A reader integration normally declares:
 }
 ```
 
-Its workflow scans that folder, reads the reader's published backup format, and maps it
-to normalized `ExtensionReaderBook` objects. A `libraryAction` can request the fixed
+Its workflow scans that folder or receives a file selected by Tomeio, reads the reader's
+published backup format, and maps it to normalized `ExtensionReaderBook` objects. The import
+option appears in Settings only while that add-on is installed and enabled. A `libraryAction` can request the fixed
 `android.open-file` operation; Tomeio renders the button and supplies the local file.
 
 The complete Moon+ Reader reference implementation—including ZIP discovery, read-only
