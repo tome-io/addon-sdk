@@ -1,4 +1,4 @@
-import type { BookAcquisition, BookMetadata, BookOffer } from './domain.js';
+import type { BookAcquisition, BookMetadata, BookOffer, BookReview } from './domain.js';
 
 export const EXTENSION_MANIFEST_VERSION = 1 as const;
 
@@ -7,6 +7,7 @@ export type ExtensionResourceName =
   | 'search'
   | 'meta'
   | 'resolve'
+  | 'reviews'
   | 'acquisition'
   | 'reader'
   | 'libraryAction'
@@ -71,6 +72,7 @@ export interface ExtensionAttribution {
 export type ExtensionProviderRole =
   | 'discovery'
   | 'search'
+  | 'reviews'
   | 'acquisition'
   | 'cover';
 
@@ -185,6 +187,9 @@ export function supportsExtensionProviderRole(
   if (manifest.providerRoles) return manifest.providerRoles.includes(role);
   if (role === 'discovery') return false;
   if (role === 'cover') return false;
+  if (role === 'reviews') {
+    return manifest.resources.some((resource) => resource.name === 'reviews');
+  }
   if (role === 'search') {
     return manifest.resources.some((resource) => resource.name === 'search');
   }
@@ -211,6 +216,12 @@ export interface ExtensionResolveQuery {
   page?: number;
   limit?: number;
   format?: string;
+}
+
+export interface ExtensionReviewsQuery {
+  book: ExtensionBookReference;
+  page?: number;
+  limit?: number;
 }
 
 export interface ExtensionLibraryBook extends ExtensionBookReference {
@@ -315,6 +326,8 @@ export type ExtensionWorkflowExpression =
         | 'filter'
         | 'find'
         | 'flatten'
+        | 'slice'
+        | 'sortByOrder'
         | 'distinct'
         | 'compact'
         | 'get'
@@ -446,6 +459,10 @@ export interface BookExtension {
     query: ExtensionResolveQuery,
     context?: ExtensionInvocationContext
   ): Promise<ExtensionPage<BookMetadata>>;
+  reviews?(
+    query: ExtensionReviewsQuery,
+    context?: ExtensionInvocationContext
+  ): Promise<ExtensionPage<BookReview>>;
   acquisition?(
     id: string,
     context?: ExtensionInvocationContext
@@ -512,6 +529,7 @@ const RESOURCE_NAMES = new Set<ExtensionResourceName>([
   'search',
   'meta',
   'resolve',
+  'reviews',
   'acquisition',
   'reader',
   'libraryAction',
@@ -567,7 +585,7 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
   }
   const providerRoles = Array.isArray(value.providerRoles)
     ? value.providerRoles.map((candidate, index): ExtensionProviderRole => {
-        if (!['discovery', 'search', 'acquisition', 'cover'].includes(String(candidate))) {
+        if (!['discovery', 'search', 'reviews', 'acquisition', 'cover'].includes(String(candidate))) {
           throw new InvalidExtensionManifestError(
             `Invalid provider role at index ${index}.`
           );
@@ -583,6 +601,12 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
     !resources.some((resource) => resource.name === 'search')
   ) {
     throw new InvalidExtensionManifestError('Search providers must declare the search resource.');
+  }
+  if (
+    providerRoles?.includes('reviews') &&
+    !resources.some((resource) => resource.name === 'reviews')
+  ) {
+    throw new InvalidExtensionManifestError('Review providers must declare the reviews resource.');
   }
   if (
     providerRoles?.includes('acquisition') &&
@@ -1326,6 +1350,62 @@ export function parseExtensionPage(input: unknown): ExtensionPage<BookMetadata> 
   }
   return {
     items: value.items.map(parseBookMetadata),
+    ...(typeof value.nextPage === 'number' ? { nextPage: value.nextPage } : {}),
+  };
+}
+
+export function parseBookReview(input: unknown): BookReview {
+  const value = record(input);
+  if (!value) throw new InvalidExtensionResponseError('Review must be an object.');
+  const optionalNumber = (field: string): number | undefined => {
+    const candidate = value[field];
+    if (candidate == null) return undefined;
+    if (typeof candidate !== 'number' || !Number.isFinite(candidate) || candidate < 0) {
+      throw new InvalidExtensionResponseError(`review.${field} must be a non-negative number.`);
+    }
+    return candidate;
+  };
+  const rating = optionalNumber('rating');
+  const likesCount = optionalNumber('likesCount');
+  if (rating != null && rating > 5) {
+    throw new InvalidExtensionResponseError('review.rating must be between 0 and 5.');
+  }
+  const reviewedAt = value.reviewedAt;
+  if (reviewedAt != null && typeof reviewedAt !== 'string') {
+    throw new InvalidExtensionResponseError('review.reviewedAt must be a string.');
+  }
+  return {
+    id: responseString(value.id, 'review.id'),
+    author: responseString(value.author, 'review.author'),
+    text: responseString(value.text, 'review.text'),
+    ...(rating != null ? { rating } : {}),
+    ...(typeof reviewedAt === 'string' ? { reviewedAt } : {}),
+    ...(typeof value.containsSpoilers === 'boolean'
+      ? { containsSpoilers: value.containsSpoilers }
+      : {}),
+    ...(likesCount != null ? { likesCount } : {}),
+    ...(value.authorAvatarUrl != null
+      ? { authorAvatarUrl: responseUrl(value.authorAvatarUrl, 'review.authorAvatarUrl') }
+      : {}),
+    ...(value.authorUrl != null
+      ? { authorUrl: responseUrl(value.authorUrl, 'review.authorUrl') }
+      : {}),
+  };
+}
+
+export function parseExtensionReviewPage(input: unknown): ExtensionPage<BookReview> {
+  const value = record(input);
+  if (!value || !Array.isArray(value.items)) {
+    throw new InvalidExtensionResponseError('Review page response must contain an items array.');
+  }
+  if (
+    value.nextPage != null &&
+    (typeof value.nextPage !== 'number' || !Number.isInteger(value.nextPage) || value.nextPage < 1)
+  ) {
+    throw new InvalidExtensionResponseError('Review page nextPage must be a positive integer.');
+  }
+  return {
+    items: value.items.map(parseBookReview),
     ...(typeof value.nextPage === 'number' ? { nextPage: value.nextPage } : {}),
   };
 }

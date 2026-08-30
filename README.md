@@ -2,9 +2,9 @@
 
 The public TypeScript SDK for capability-based Tomeio add-ons.
 
-Add-ons return normalized book metadata, resolution candidates, acquisition options,
-reader progress, and host-rendered library actions. They do not inject UI or executable
-code into Tomeio.
+Add-ons return normalized book metadata, ratings, reader reviews, resolution candidates,
+acquisition options, reader progress, and host-rendered library actions. They do not inject
+UI or executable code into Tomeio.
 
 An add-on with the `catalog` resource, declared `catalogs`, and `providerRoles: ['discovery']`
 can be selected as Tomeio's Discovery provider. Catalog support alone does not opt an add-on into
@@ -14,6 +14,9 @@ Manifest attribution may include an HTTPS `imageUrl` for provider-required brand
 Add-ons that declare `providerRoles: ['cover']` and the `resolve` resource can also
 provide cover candidates. Tomeio passes a provider-neutral book reference and uses a
 matched candidate's normalized `coverUrl`; the app retains control of ordering and UI.
+Aggregate ratings use `BookMetadata.rating` and `ratingsCount`. Add-ons that declare the
+`reviews` resource and provider role receive a provider-neutral book reference and return
+paginated `BookReview` records for Tomeio to render.
 
 ## Install
 
@@ -22,7 +25,7 @@ Until the npm package is published, pin the GitHub release:
 ```json
 {
   "dependencies": {
-    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.7.0"
+    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.8.0"
   }
 }
 ```
@@ -164,6 +167,7 @@ against `permissions.androidPackages` and performs the Android file handoff itse
 - `GET /search/book.json`
 - `GET /meta/book/:id.json`
 - `POST /resolve/book.json`
+- `POST /reviews/book.json`
 - `GET /acquisition/book/:id.json`
 - `POST /reader/sync.json`
 - `POST /action/library.json`

@@ -14,6 +14,18 @@ export interface BookMetadata {
   acquisitions?: BookAcquisition[];
 }
 
+export interface BookReview {
+  id: string;
+  author: string;
+  text: string;
+  rating?: number;
+  reviewedAt?: string;
+  containsSpoilers?: boolean;
+  likesCount?: number;
+  authorAvatarUrl?: string;
+  authorUrl?: string;
+}
+
 export interface BookPrice {
   amount: number;
   currency: string;
