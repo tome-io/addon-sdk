@@ -11,6 +11,9 @@ can be selected as Tomeio's Discovery provider. Catalog support alone does not o
 the Home provider picker. Optional normalized `BookMetadata.offers` let Tomeio render prices and
 purchase actions consistently; add-ons never provide their own cover overlays or buttons.
 Manifest attribution may include an HTTPS `imageUrl` for provider-required branding.
+Add-ons that declare `providerRoles: ['cover']` and the `resolve` resource can also
+provide cover candidates. Tomeio passes a provider-neutral book reference and uses a
+matched candidate's normalized `coverUrl`; the app retains control of ordering and UI.
 
 ## Install
 
@@ -19,7 +22,7 @@ Until the npm package is published, pin the GitHub release:
 ```json
 {
   "dependencies": {
-    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.4.0"
+    "@tomeio/addon-sdk": "github:tome-io/addon-sdk#v0.7.0"
   }
 }
 ```
