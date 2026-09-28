@@ -99,6 +99,36 @@ export const workflow = defineWorkflow({
 });
 ```
 
+### Shared authentication sessions
+
+A resource can declare `session` with contiguous login step IDs in `steps`, an
+`output` expression containing the minimal saved step results, and an optional
+`expiresAt` expression (Unix milliseconds), or `expiresIn` (lifetime in seconds).
+Keep login requests dependent only on
+configuration and earlier login step results. Use the same login requests and
+session declaration across resources to share an account session.
+
+```ts
+session: {
+  steps: ['login'],
+  output: { login: { body: { token: { $op: 'path', path: 'steps.login.body.token' } } } },
+  expiresAt: { $op: 'path', path: 'steps.login.body.expiresAt' },
+}
+```
+
+Mark subsequent GET/HEAD steps `authenticated: true` to renew and retry once on
+HTTP 401. The host never replays writes. For services that do not reliably return
+401, declare `session.validate` with a read-only `request`, an `accept` expression,
+and an `invalidWhen` expression. Other validation failures surface as errors.
+Expressions use the usual `steps` context, plus `response` for the check result.
+
+The host shares concurrent logins, securely persists only `session.output` and
+expiry on supported native platforms, and clears sessions on configuration changes,
+disable, or removal. Platforms without secure storage retain sessions only in
+memory. Retain ordinary login steps so older clients can ignore these optional
+annotations and continue signing in per operation. Session reuse requires an
+updated Tomeio host; updating the SDK alone does not enable it.
+
 ## Reviewed device integrations
 
 Use `defineDeviceWorkflow` for reader integrations that need controlled access to a
